@@ -1,3 +1,15 @@
+"""
+
+projekt_3.py: třetí projekt do Engeto Online Python Akademie
+
+author: Adam Směšný
+
+email: adamsmesny@email.cz
+
+discord: adams._25049
+
+"""
+
 import requests
 from bs4 import BeautifulSoup
 import csv
