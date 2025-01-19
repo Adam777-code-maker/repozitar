@@ -1,170 +1,160 @@
-"""
-
-projekt_3.py: třetí projekt do Engeto Online Python Akademie
-
-author: Adam Směšný
-
-email: adamsmesny@email.cz
-
-discord: adams._25049
-
-"""
-
 import requests
 from bs4 import BeautifulSoup
 import csv
 import sys
 
-def fetch_url(url):
+def načti_url(url):
     """
-    Fetch the content of the given URL.
+    Načte obsah dané URL.
     """
-    response = requests.get(url)
-    if response.status_code == 200:
-        return BeautifulSoup(response.content, "html.parser")
+    odpověď = requests.get(url)
+    if odpověď.status_code == 200:
+        return BeautifulSoup(odpověď.content, "html.parser")
     else:
-        raise ConnectionError(f"Chyba při načítání URL: {url} (HTTP {response.status_code})")
+        raise ConnectionError(f"Chyba při načítání URL: {url} (HTTP {odpověď.status_code})")
 
-def clean_number(value):
+def vyčisti_číslo(hodnota):
     """
-    Convert a formatted string number (e.g., '1 000,00') to an integer or float.
+    Převede formátované číslo (např. '1 000,00') na celé nebo desetinné číslo.
     """
-    value = value.replace("\xa0", "").replace(",", ".").strip()
-    if "." in value:
-        return float(value)
-    return int(value)
+    hodnota = hodnota.replace("\xa0", "").replace(",", ".").strip()
+    if "." in hodnota:
+        return float(hodnota)
+    return int(hodnota)
 
-def extract_municipality_links(main_url, start_name, end_name):
+def extrahuj_odkazy_na_obce(hlavní_url, počáteční_obec, koncová_obec):
     """
-    Extract links to municipalities between start_name and end_name.
+    Extrahuje odkazy na obce mezi počáteční_obec a koncová_obec.
     """
-    soup = fetch_url(main_url)
-    tables = soup.find_all("table", class_="table")  # Najít všechny tabulky s obcemi
+    soup = načti_url(hlavní_url)
+    tabulky = soup.find_all("table", class_="table")  # Najde všechny tabulky s obcemi
 
-    if not tables:
+    if not tabulky:
         raise ValueError("Chyba: Nepodařilo se najít tabulky se seznamem obcí na hlavní stránce.")
 
-    links = []
-    collect = False
-    for table in tables:
-        for row in table.find_all("tr")[2:]:  # Přeskakujeme hlavičku
-            cells = row.find_all("td")
-            code = cells[0].text.strip()
-            name = cells[1].text.strip()
-            relative_url = cells[0].find("a")["href"]
-            full_url = f"https://www.volby.cz/pls/ps2017nss/{relative_url}"
+    odkazy = []
+    sbírej = False
+    for tabulka in tabulky:
+        for řádek in tabulka.find_all("tr")[2:]:  # Přeskakujeme hlavičku
+            buňky = řádek.find_all("td")
+            kód = buňky[0].text.strip()
+            název = buňky[1].text.strip()
+            relativní_url = buňky[0].find("a")["href"]
+            plná_url = f"https://www.volby.cz/pls/ps2017nss/{relativní_url}"
 
-            # Start collecting when reaching start_name
-            if name == start_name:
-                collect = True
+            # Začneme sbírat odkazy od počáteční obce
+            if název == počáteční_obec:
+                sbírej = True
 
-            # Stop collecting when reaching end_name
-            if collect:
-                links.append({"code": code, "name": name, "url": full_url})
+            # Přidáme odkaz, pokud sbíráme
+            if sbírej:
+                odkazy.append({"kód": kód, "název": název, "url": plná_url})
 
-            if name == end_name:
-                collect = False
+            # Přestaneme sbírat, když dosáhneme koncové obce
+            if název == koncová_obec:
+                sbírej = False
 
-    return links
+    return odkazy
 
-def extract_voting_results(municipality_url):
+def extrahuj_výsledky_voleb(obec_url):
     """
-    Extract voting results for a given municipality.
+    Extrahuje volební výsledky pro danou obec.
     """
-    soup = fetch_url(municipality_url)
+    soup = načti_url(obec_url)
 
     # Extrahování obecné statistiky
     try:
-        stats_table = soup.find("table", id="ps311_t1")  # Identifikace tabulky statistik
-        stats_row = stats_table.find_all("tr")[2]  # Třetí řádek obsahuje data
-        cells = stats_row.find_all("td")
+        statistická_tabulka = soup.find("table", id="ps311_t1")  # Identifikace tabulky statistik
+        statistický_řádek = statistická_tabulka.find_all("tr")[2]  # Třetí řádek obsahuje data
+        buňky = statistický_řádek.find_all("td")
 
-        registered = clean_number(cells[3].text)
-        envelopes = clean_number(cells[4].text)
-        valid = clean_number(cells[7].text)
+        registrovaní = vyčisti_číslo(buňky[3].text)
+        obálky = vyčisti_číslo(buňky[4].text)
+        platné = vyčisti_číslo(buňky[7].text)
     except (AttributeError, IndexError, ValueError) as e:
         raise ValueError(f"Chyba při extrahování statistik: {e}")
 
     # Extrahování výsledků stran
-    party_results = {}
+    výsledky_stran = {}
     try:
-        party_tables = soup.find_all("table", class_="table")  # Tabulky s výsledky stran
-        for table in party_tables:
-            rows = table.find_all("tr")[2:]  # Přeskakujeme hlavičku
-            for row in rows:
-                cells = row.find_all("td")
-                party_name = cells[1].text.strip()
-                votes = clean_number(cells[2].text)
-                party_results[party_name] = votes
+        tabulky_stran = soup.find_all("table", class_="table")  # Tabulky s výsledky stran
+        for tabulka in tabulky_stran:
+            řádky = tabulka.find_all("tr")[2:]  # Přeskakujeme hlavičku
+            for řádek in řádky:
+                buňky = řádek.find_all("td")
+                název_strany = buňky[1].text.strip()
+                hlasy = vyčisti_číslo(buňky[2].text)
+                výsledky_stran[název_strany] = hlasy
     except (AttributeError, IndexError, ValueError) as e:
         raise ValueError(f"Chyba při extrahování výsledků stran: {e}")
 
     return {
-        "registered": registered,
-        "envelopes": envelopes,
-        "valid": valid,
-        "parties": party_results
+        "registrovaní": registrovaní,
+        "obálky": obálky,
+        "platné": platné,
+        "strany": výsledky_stran
     }
 
-def save_to_csv(output_file, data):
+def ulož_do_csv(výstupní_soubor, data):
     """
-    Save extracted data into a CSV file with proper delimiters for Excel.
+    Uloží extrahovaná data do CSV souboru s vhodným oddělovačem pro Excel.
     """
-    parties = list(data[0]["parties"].keys())
-    header = ["code", "location", "registered", "envelopes", "valid"] + parties
+    strany = list(data[0]["strany"].keys())
+    # Hlavička bez sloupce „1“
+    hlavička = ["code", "location", "registered", "envelopes", "valid"] + [strana for strana in strany if strana != "1"]
 
-    with open(output_file, "w", newline="", encoding="utf-8-sig") as f:
-        writer = csv.writer(f, delimiter=";")  # Použijeme středník jako oddělovač
-        writer.writerow(header)  # Zápis hlavičky
+    with open(výstupní_soubor, "w", newline="", encoding="utf-8-sig") as f:
+        zapisovač = csv.writer(f, delimiter=";")  # Použijeme středník jako oddělovač
+        zapisovač.writerow(hlavička)  # Zápis hlavičky
 
-        for record in data:
-            row = [
-                record["code"],
-                record["location"],
-                record["registered"],
-                record["envelopes"],
-                record["valid"]
+        for záznam in data:
+            # Řádek bez hodnot pro stranu „1“
+            řádek = [
+                záznam["kód"],
+                záznam["obec"],
+                záznam["registrovaní"],
+                záznam["obálky"],
+                záznam["platné"]
             ]
-            row += [record["parties"].get(party, 0) for party in parties]
-            writer.writerow(row)
+            řádek += [záznam["strany"].get(strana, 0) for strana in strany if strana != "1"]
+            zapisovač.writerow(řádek)
 
-def main():
+def hlavní():
     """
-    Main function to handle command-line arguments and run the scraper.
+    Hlavní funkce, která zpracovává argumenty příkazového řádku a spouští scraper.
     """
     if len(sys.argv) != 3:
         print("Použití: python projekt_3.py <URL> <výstupní_soubor.csv>")
         sys.exit(1)
 
     url = sys.argv[1]
-    output_file = sys.argv[2]
+    výstupní_soubor = sys.argv[2]
 
-    start_name = "Babice"
-    end_name = "Žítková"
+    počáteční_obec = "Babice"
+    koncová_obec = "Žítková"
 
     print(f"Zpracovávám data z URL: {url}")
     
     try:
-        municipalities = extract_municipality_links(url, start_name, end_name)
-        all_results = []
+        obce = extrahuj_odkazy_na_obce(url, počáteční_obec, koncová_obec)
+        všechny_výsledky = []
 
-        for municipality in municipalities:
-            print(f"Zpracovávám obec: {municipality['name']} (kód: {municipality['code']})")
+        for obec in obce:
+            print(f"Zpracovávám obec: {obec['název']} (kód: {obec['kód']})")
             try:
-                result = extract_voting_results(municipality["url"])
-                result["code"] = municipality["code"]
-                result["location"] = municipality["name"]
-                all_results.append(result)
+                výsledek = extrahuj_výsledky_voleb(obec["url"])
+                výsledek["kód"] = obec["kód"]
+                výsledek["obec"] = obec["název"]
+                všechny_výsledky.append(výsledek)
             except Exception as e:
-                print(f"Chyba při zpracování obce {municipality['name']}: {e}")
+                print(f"Chyba při zpracování obce {obec['název']}: {e}")
 
-        save_to_csv(output_file, all_results)
-        print(f"Výsledky byly úspěšně uloženy do souboru {output_file}")
+        ulož_do_csv(výstupní_soubor, všechny_výsledky)
+        print(f"Výsledky byly úspěšně uloženy do souboru {výstupní_soubor}")
 
     except Exception as e:
         print(f"Chyba: {e}")
         sys.exit(1)
 
 if __name__ == "__main__":
-    main()
-
+    hlavní()
