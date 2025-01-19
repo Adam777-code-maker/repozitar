@@ -14,20 +14,17 @@ $ pip3 install -r requirements.txt    # nainstaluji knihovny
 
 SPUŠTĚNÍ PROJEKTU
 -----------------
-Spouštění souboru election-scraper.py v rámci příkazového řádku, požaduje dva povinné argumenty.
+Spouštění souboru elections-scraper.py v rámci příkazového řádku, požaduje dva povinné argumenty.
 
-python election-scraper.py "https://www.volby.cz/pls/ps2017nss/ps32?xjazyk=CZ&xkraj=13&xnumn
-uts=7202" vysledky.csv
+python elections-scraper.py "https://www.volby.cz/pls/ps2017nss/ps32?xjazyk=CZ&xkraj=13&xnumnuts=7202" vysledky.csv
 
 Následně se Vám stáhnou výsledky, jako soubor s příponou .csv.
 
 UKÁZKA PROJEKTU
 ---------------
-
 Výsledky hlasování pro okres Uherské Hradiště:
 
-1. argument: https://www.volby.cz/pls/ps2017nss/ps32?xjazyk=CZ&xkraj=13&xnumn
-uts=7202
+1. argument: https://www.volby.cz/pls/ps2017nss/ps32?xjazyk=CZ&xkraj=13&xnumnuts=7202
 2. argument: vysledky.csv
 
 Průbeh stahování:
